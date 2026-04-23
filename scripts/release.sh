@@ -19,18 +19,10 @@ echo "  Running tests..."
 pnpm test || { echo "Error: Tests failed."; exit 1; }
 
 echo "  Running lint..."
-if pnpm lint 2>&1 | grep -q "Could not start dynamically linked"; then
-  echo "  ⚠ Lint skipped (binary not compatible with NixOS — CI will check)"
-else
-  pnpm lint || { echo "Error: Lint failed."; exit 1; }
-fi
+biome check src/ || { echo "Error: Lint failed."; exit 1; }
 
 echo "  Building..."
-if pnpm build 2>&1 | grep -q "Could not start dynamically linked"; then
-  echo "  ⚠ Build skipped (binary not compatible with NixOS — CI will check)"
-else
-  pnpm build || { echo "Error: Build failed."; exit 1; }
-fi
+pnpm build || { echo "Error: Build failed."; exit 1; }
 
 echo "All checks passed."
 echo ""
