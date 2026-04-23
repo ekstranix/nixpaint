@@ -88,3 +88,58 @@ svg {
 	flex: 1;
 	background: #1a1a2e;
 }
+
+.about-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100;
+}
+
+.about-dialog {
+	background: #16213e;
+	border: 1px solid #0f3460;
+	border-radius: 8px;
+	padding: 24px 32px;
+	text-align: center;
+	position: relative;
+	min-width: 260px;
+}
+
+.about-dialog h2 {
+	margin: 0 0 12px;
+	font-size: 20px;
+	color: #7ebae4;
+}
+
+.about-dialog p {
+	margin: 6px 0;
+	font-size: 14px;
+}
+
+.about-dialog a {
+	color: #7ebae4;
+	text-decoration: none;
+}
+
+.about-dialog a:hover {
+	text-decoration: underline;
+}
+
+.about-close {
+	position: absolute;
+	top: 8px;
+	right: 12px;
+	background: none;
+	border: none;
+	color: #e0e0e0;
+	font-size: 20px;
+	cursor: pointer;
+}
+
+.toolbar-spacer {
+	margin-left: auto;
+}

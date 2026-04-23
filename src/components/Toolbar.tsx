@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useCanvasStore } from "../store/canvas";
+import { AboutDialog } from "./AboutDialog";
 import { Palette } from "./Palette";
 
 export function Toolbar({
@@ -11,6 +13,7 @@ export function Toolbar({
 	const mode = useCanvasStore((s) => s.mode);
 	const setMode = useCanvasStore((s) => s.setMode);
 	const clearAll = useCanvasStore((s) => s.clearAll);
+	const [showAbout, setShowAbout] = useState(false);
 
 	return (
 		<div className="toolbar">
@@ -42,6 +45,11 @@ export function Toolbar({
 					Export PNG
 				</button>
 			</div>
+			<div className="toolbar-spacer" />
+			<button type="button" onClick={() => setShowAbout(true)}>
+				About
+			</button>
+			{showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
 		</div>
 	);
 }
