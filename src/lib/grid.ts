@@ -73,6 +73,18 @@ export function hexNeighbors(hex: HexCoord): HexCoord[] {
 	return directions.map((d) => ({ q: hex.q + d.q, r: hex.r + d.r }));
 }
 
+/** Get all hex cells within a given radius of a center hex. Radius 1 = center only, 2 = center + neighbors, etc. */
+export function hexesInRadius(center: HexCoord, radius: number): HexCoord[] {
+	const results: HexCoord[] = [];
+	const r = radius - 1; // radius 1 = just center
+	for (let dq = -r; dq <= r; dq++) {
+		for (let dr = Math.max(-r, -dq - r); dr <= Math.min(r, -dq + r); dr++) {
+			results.push({ q: center.q + dq, r: center.r + dr });
+		}
+	}
+	return results;
+}
+
 /** Create a string key from hex coordinates (for use in Maps/Sets). */
 export function hexKey(hex: HexCoord): string {
 	return `${hex.q},${hex.r}`;

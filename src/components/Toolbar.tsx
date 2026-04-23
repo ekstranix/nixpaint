@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useCanvasStore } from "../store/canvas";
 import { AboutDialog } from "./AboutDialog";
-import { Palette } from "./Palette";
 
 export function Toolbar({
 	onExportSvg,
@@ -13,27 +12,25 @@ export function Toolbar({
 	const clearAll = useCanvasStore((s) => s.clearAll);
 	const zoomIn = useCanvasStore((s) => s.zoomIn);
 	const zoomOut = useCanvasStore((s) => s.zoomOut);
-	const colorMode = useCanvasStore((s) => s.colorMode);
-	const setColorMode = useCanvasStore((s) => s.setColorMode);
+	const undo = useCanvasStore((s) => s.undo);
+	const redo = useCanvasStore((s) => s.redo);
+	const canUndo = useCanvasStore((s) => s.past.length > 0);
+	const canRedo = useCanvasStore((s) => s.future.length > 0);
 	const [showAbout, setShowAbout] = useState(false);
 
 	return (
 		<div className="toolbar">
-			<Palette />
 			<div className="toolbar-group">
-				<button
-					type="button"
-					className={colorMode === "stable" ? "active" : ""}
-					onClick={() => setColorMode("stable")}
-				>
-					Stable
+				<button type="button" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+					Undo
 				</button>
 				<button
 					type="button"
-					className={colorMode === "cycle" ? "active" : ""}
-					onClick={() => setColorMode("cycle")}
+					onClick={redo}
+					disabled={!canRedo}
+					title="Redo (Ctrl+Shift+Z)"
 				>
-					Cycle
+					Redo
 				</button>
 			</div>
 			<div className="toolbar-group">

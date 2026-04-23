@@ -17,9 +17,72 @@ body {
 	display: grid;
 	grid-template-areas:
 		"header header"
+		"options options"
 		"sidebar canvas";
 	grid-template-columns: 40px 1fr;
-	grid-template-rows: auto 1fr;
+	grid-template-rows: auto auto 1fr;
+}
+
+.tool-options-bar {
+	grid-area: options;
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 6px 16px;
+	background: #1a1a2e;
+	border-bottom: 1px solid #0f3460;
+	min-height: 36px;
+	font-size: 13px;
+}
+
+.tool-options-bar button {
+	padding: 4px 10px;
+	border: 1px solid #0f3460;
+	background: #16213e;
+	color: #e0e0e0;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.tool-options-bar button:hover {
+	background: #0f3460;
+}
+
+.tool-options-bar button.active {
+	background: #5277c3;
+	border-color: #7ebae4;
+	color: white;
+}
+
+.tool-options-bar select {
+	padding: 3px 6px;
+	border: 1px solid #0f3460;
+	background: #16213e;
+	color: #e0e0e0;
+	border-radius: 4px;
+	font-size: 13px;
+}
+
+.tool-options-bar input[type="range"] {
+	width: 80px;
+	accent-color: #5277c3;
+}
+
+.tool-options-bar input[type="checkbox"] {
+	accent-color: #5277c3;
+}
+
+.option-label {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: #e0e0e0;
+}
+
+.option-hint {
+	color: #808080;
+	font-style: italic;
 }
 
 .side-toolbar {
@@ -91,6 +154,11 @@ body {
 	background: #5277c3;
 	border-color: #7ebae4;
 	color: white;
+}
+
+.toolbar button:disabled {
+	opacity: 0.4;
+	cursor: default;
 }
 
 .palette {

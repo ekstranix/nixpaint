@@ -26,8 +26,20 @@ interface PanState {
 	startScreenX: number;
 	startScreenY: number;
 	startVp: Viewport;
-	/** CTM captured at pan start, used for consistent delta calculation */
 	ctm: DOMMatrix;
+}
+
+function getCursor(mode: string): string {
+	switch (mode) {
+		case "erase":
+			return "crosshair";
+		case "pan":
+			return "grab";
+		case "node":
+			return "crosshair";
+		default:
+			return "default";
+	}
 }
 
 export function Canvas() {
@@ -40,13 +52,16 @@ export function Canvas() {
 	const cells = useCanvasStore((s) => s.cells);
 	const viewport = useCanvasStore((s) => s.viewport);
 	const mode = useCanvasStore((s) => s.mode);
+	const backgroundColor = useCanvasStore((s) => s.backgroundColor);
+	const nodePoints = useCanvasStore((s) => s.nodePoints);
 
 	useEffect(() => {
 		const svg = svgRef.current;
 		if (!svg) return;
 
 		const handlePointerDown = (e: PointerEvent) => {
-			const { mode } = useCanvasStore.getState();
+			const store = useCanvasStore.getState();
+			const { mode } = store;
 
 			// Pan: middle-click always, or left-click in pan mode
 			if (e.button === 1 || (e.button === 0 && mode === "pan")) {
@@ -56,7 +71,7 @@ export function Canvas() {
 				panStart.current = {
 					startScreenX: e.clientX,
 					startScreenY: e.clientY,
-					startVp: { ...useCanvasStore.getState().viewport },
+					startVp: { ...store.viewport },
 					ctm: ctm || new DOMMatrix(),
 				};
 				svg.setPointerCapture(e.pointerId);
@@ -65,15 +80,29 @@ export function Canvas() {
 
 			if (e.button !== 0) return;
 
-			isPainting.current = true;
+			// Non-interactive modes
+			if (mode === "foreground" || mode === "background") return;
+
 			const pt = screenToSvg(svg, e.clientX, e.clientY);
+
+			// Node tool
+			if (mode === "node") {
+				if (store.nodePoints.length > 0) {
+					store.pushHistory();
+				}
+				store.nodeClick(pt.x, pt.y);
+				return;
+			}
+
+			// Paint/erase — snapshot before the stroke
+			store.pushHistory();
+			isPainting.current = true;
 			lastPixel.current = { x: pt.x, y: pt.y };
 
-			const store = useCanvasStore.getState();
 			if (mode === "paint") {
 				store.paintAtPixel(pt.x, pt.y);
 			} else if (mode === "erase") {
-				store.eraseLine(pt.x, pt.y, pt.x, pt.y);
+				store.eraseAtPixel(pt.x, pt.y);
 			}
 			svg.setPointerCapture(e.pointerId);
 		};
@@ -87,7 +116,6 @@ export function Canvas() {
 					panStart.current = null;
 					return;
 				}
-				// Use the CTM from pan start for consistent deltas
 				const ps = panStart.current;
 				const inv = ps.ctm.inverse();
 				const startSvg = new DOMPoint(ps.startScreenX, ps.startScreenY).matrixTransform(inv);
@@ -104,14 +132,18 @@ export function Canvas() {
 
 			// Painting/erasing
 			if (!isPainting.current || !lastPixel.current) return;
+			const store = useCanvasStore.getState();
+
+			// Stamp mode: don't drag-paint
+			if (store.mode === "paint" && store.paintMode === "stamp") return;
+
 			const pt = screenToSvg(svg, e.clientX, e.clientY);
 			const prev = lastPixel.current;
-			const { mode } = useCanvasStore.getState();
 
-			if (mode === "paint") {
-				useCanvasStore.getState().paintLine(prev.x, prev.y, pt.x, pt.y);
-			} else if (mode === "erase") {
-				useCanvasStore.getState().eraseLine(prev.x, prev.y, pt.x, pt.y);
+			if (store.mode === "paint") {
+				store.paintLine(prev.x, prev.y, pt.x, pt.y);
+			} else if (store.mode === "erase") {
+				store.eraseLine(prev.x, prev.y, pt.x, pt.y);
 			}
 			lastPixel.current = { x: pt.x, y: pt.y };
 		};
@@ -123,19 +155,43 @@ export function Canvas() {
 			panStart.current = null;
 		};
 
+		const handleDblClick = () => {
+			const { mode } = useCanvasStore.getState();
+			if (mode === "node") {
+				useCanvasStore.getState().clearNodePoints();
+			}
+		};
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				const { mode } = useCanvasStore.getState();
+				if (mode === "node") {
+					useCanvasStore.getState().clearNodePoints();
+				}
+			}
+
+			const mod = e.ctrlKey || e.metaKey;
+			if (mod && e.key === "z" && !e.shiftKey) {
+				e.preventDefault();
+				useCanvasStore.getState().undo();
+			}
+			if (mod && e.key === "z" && e.shiftKey) {
+				e.preventDefault();
+				useCanvasStore.getState().redo();
+			}
+			if (mod && e.key === "Z") {
+				e.preventDefault();
+				useCanvasStore.getState().redo();
+			}
+		};
+
 		const handleWheel = (e: WheelEvent) => {
 			e.preventDefault();
 			const vp = useCanvasStore.getState().viewport;
 			const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-
-			// Zoom around cursor position using SVG's own coordinate transform
 			const cursor = screenToSvg(svg, e.clientX, e.clientY);
-
 			const newWidth = vp.width * zoomFactor;
 			const newHeight = vp.height * zoomFactor;
-
-			// cursor.x should stay at the same screen position after zoom
-			// cursor.x = newVp.x + fracX * newWidth, where fracX is the same proportion
 			const fracX = (cursor.x - vp.x) / vp.width;
 			const fracY = (cursor.y - vp.y) / vp.height;
 
@@ -153,15 +209,19 @@ export function Canvas() {
 		svg.addEventListener("pointerdown", handlePointerDown);
 		svg.addEventListener("pointermove", handlePointerMove);
 		svg.addEventListener("pointerup", handlePointerUp);
+		svg.addEventListener("dblclick", handleDblClick);
 		svg.addEventListener("wheel", handleWheel, { passive: false });
 		svg.addEventListener("contextmenu", handleContextMenu);
+		document.addEventListener("keydown", handleKeyDown);
 
 		return () => {
 			svg.removeEventListener("pointerdown", handlePointerDown);
 			svg.removeEventListener("pointermove", handlePointerMove);
 			svg.removeEventListener("pointerup", handlePointerUp);
+			svg.removeEventListener("dblclick", handleDblClick);
 			svg.removeEventListener("wheel", handleWheel);
 			svg.removeEventListener("contextmenu", handleContextMenu);
+			document.removeEventListener("keydown", handleKeyDown);
 		};
 	}, []);
 
@@ -181,6 +241,9 @@ export function Canvas() {
 		}
 	}
 
+	// Last node point indicator
+	const lastNode = nodePoints.length > 0 ? nodePoints[nodePoints.length - 1] : null;
+
 	return (
 		<svg
 			ref={svgRef}
@@ -188,15 +251,25 @@ export function Canvas() {
 				width: "100%",
 				height: "100%",
 				display: "block",
-				cursor: mode === "erase" ? "crosshair" : mode === "pan" ? "grab" : "default",
+				cursor: getCursor(mode),
 			}}
 			viewBox={`${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}`}
 			preserveAspectRatio="none"
 		>
 			<title>Nixpaint Canvas</title>
+			<rect
+				x={viewport.x}
+				y={viewport.y}
+				width={viewport.width}
+				height={viewport.height}
+				fill={backgroundColor}
+			/>
 			{visibleLambdas.map(({ key, x, y, rotation, color }) => (
 				<Lambda key={key} x={x} y={y} rotation={rotation} color={color} />
 			))}
+			{lastNode && mode === "node" && (
+				<circle cx={lastNode.x} cy={lastNode.y} r={4} fill="#7ebae4" opacity={0.8} />
+			)}
 		</svg>
 	);
 }

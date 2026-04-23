@@ -26,7 +26,7 @@ The application SHALL provide a "NixOS Rainbow" palette with six colors:
 - **THEN** all six rainbow colors are available for painting
 
 ### Requirement: Palette selector UI
-The application SHALL display a palette selector allowing the user to switch between palettes and pick a color within the active palette.
+The application SHALL display a palette selector allowing the user to switch between palettes (Nix Blue, NixOS Rainbow, Grayscale) and pick a color within the active palette. The palette UI SHALL be displayed in the tool options bar when the foreground color tool is active.
 
 #### Scenario: Switch palette
 - **WHEN** user switches from Nix Blue to Rainbow palette

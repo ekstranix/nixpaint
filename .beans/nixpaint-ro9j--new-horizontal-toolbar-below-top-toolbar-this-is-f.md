@@ -1,11 +1,11 @@
 ---
 # nixpaint-ro9j
 title: new horizontal toolbar, below top toolbar. This is for toolsettings.
-status: draft
+status: completed
 type: task
 priority: normal
 created_at: 2026-04-23T22:06:25Z
-updated_at: 2026-04-23T22:14:56Z
+updated_at: 2026-04-23T22:36:55Z
 ---
 
 Every tool will get their own settings and they will be available in the second horizonal toolbar. The top toolbar will contain main application buttons.

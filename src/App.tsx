@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { Canvas } from "./components/Canvas";
 import { SideToolbar } from "./components/SideToolbar";
 import { Toolbar } from "./components/Toolbar";
+import { ToolOptionsBar } from "./components/ToolOptionsBar";
 import { hexToPixel, parseHexKey } from "./lib/grid";
 import { LAMBDA_PATH } from "./lib/lambda-path";
 import { useCanvasStore } from "./store/canvas";
@@ -42,25 +43,30 @@ function computeBounds(cells: Map<string, CellData>) {
 	};
 }
 
-function buildExportSvg(cells: Map<string, CellData>): string {
+function buildExportSvg(cells: Map<string, CellData>, bgColor?: string): string {
 	if (cells.size === 0) return "<svg xmlns='http://www.w3.org/2000/svg'/>";
 
 	const bounds = computeBounds(cells);
-	const paths: string[] = [];
+	const parts: string[] = [
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}">`,
+	];
+
+	if (bgColor) {
+		parts.push(
+			`<rect x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" fill="${bgColor}"/>`,
+		);
+	}
 
 	for (const [key, cell] of cells) {
 		const hex = parseHexKey(key);
 		const { x, y } = hexToPixel(hex);
-		paths.push(
+		parts.push(
 			`<path d="${LAMBDA_PATH}" fill="${cell.color}" transform="translate(${x},${y}) rotate(${cell.rotation})"/>`,
 		);
 	}
 
-	return [
-		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}">`,
-		...paths,
-		"</svg>",
-	].join("\n");
+	parts.push("</svg>");
+	return parts.join("\n");
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -106,21 +112,21 @@ export function App() {
 	}, []);
 
 	const handleExportSvg = useCallback(() => {
-		const cells = useCanvasStore.getState().cells;
-		if (cells.size === 0) return;
-
-		const svgString = buildExportSvg(cells);
+		const state = useCanvasStore.getState();
+		if (state.cells.size === 0) return;
+		const bgColor = state.exportBackground ? state.backgroundColor : undefined;
+		const svgString = buildExportSvg(state.cells, bgColor);
 		const blob = new Blob([svgString], { type: "image/svg+xml" });
 		downloadBlob(blob, "nixpaint.svg");
 	}, []);
 
 	const handleExportPng = useCallback(() => {
-		const cells = useCanvasStore.getState().cells;
-		if (cells.size === 0) return;
-
-		const svgString = buildExportSvg(cells);
-		const bounds = computeBounds(cells);
-		const scale = 2; // 2x resolution
+		const state = useCanvasStore.getState();
+		if (state.cells.size === 0) return;
+		const bgColor = state.exportBackground ? state.backgroundColor : undefined;
+		const svgString = buildExportSvg(state.cells, bgColor);
+		const bounds = computeBounds(state.cells);
+		const scale = 2;
 		const canvas = document.createElement("canvas");
 		canvas.width = bounds.width * scale;
 		canvas.height = bounds.height * scale;
@@ -144,6 +150,7 @@ export function App() {
 	return (
 		<div className="app">
 			<Toolbar onExportSvg={handleExportSvg} onExportPng={handleExportPng} />
+			<ToolOptionsBar />
 			<SideToolbar />
 			<Canvas />
 		</div>

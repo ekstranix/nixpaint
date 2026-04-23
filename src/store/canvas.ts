@@ -1,7 +1,22 @@
 import { create } from "zustand";
-import { hexesOnLine, hexKey, hexRotation, parseHexKey, pixelToHex } from "../lib/grid";
+import {
+	hexKey,
+	hexRotation,
+	hexesInRadius,
+	hexesOnLine,
+	parseHexKey,
+	pixelToHex,
+} from "../lib/grid";
 import { NIX_BLUE, type Palette } from "../lib/palettes";
-import type { CellData, ColorMode, Mode, Viewport } from "../types";
+import type {
+	BackgroundColor,
+	CellData,
+	ColorMode,
+	Mode,
+	PaintMode,
+	RotationMode,
+	Viewport,
+} from "../types";
 
 interface CanvasState {
 	cells: Map<string, CellData>;
@@ -12,16 +27,47 @@ interface CanvasState {
 	cycleIndex: number;
 	viewport: Viewport;
 
+	// Tool settings
+	brushWidth: number;
+	eraserWidth: number;
+	paintMode: PaintMode;
+	paintRotation: RotationMode;
+	nodeRotation: RotationMode;
+
+	// Node tool
+	nodePoints: Array<{ x: number; y: number }>;
+
+	// Background
+	backgroundColor: BackgroundColor;
+	exportBackground: boolean;
+
+	// History
+	past: Map<string, CellData>[];
+	future: Map<string, CellData>[];
+
 	// Actions
+	pushHistory: () => void;
+	undo: () => void;
+	redo: () => void;
 	fillCell: (key: string) => void;
 	eraseCell: (key: string) => void;
 	paintAtPixel: (x: number, y: number) => void;
 	paintLine: (x1: number, y1: number, x2: number, y2: number) => void;
 	eraseLine: (x1: number, y1: number, x2: number, y2: number) => void;
+	eraseAtPixel: (x: number, y: number) => void;
+	nodeClick: (x: number, y: number) => void;
+	clearNodePoints: () => void;
 	setActiveColor: (color: string) => void;
 	setActivePalette: (palette: Palette) => void;
 	setMode: (mode: Mode) => void;
 	setColorMode: (colorMode: ColorMode) => void;
+	setBrushWidth: (width: number) => void;
+	setEraserWidth: (width: number) => void;
+	setPaintMode: (paintMode: PaintMode) => void;
+	setPaintRotation: (rotation: RotationMode) => void;
+	setNodeRotation: (rotation: RotationMode) => void;
+	setBackgroundColor: (color: BackgroundColor) => void;
+	setExportBackground: (enabled: boolean) => void;
 	setViewport: (viewport: Viewport) => void;
 	zoomIn: () => void;
 	zoomOut: () => void;
@@ -48,6 +94,10 @@ function getColor(state: CanvasState): { color: string; cycleIndex: number } {
 	return { color, cycleIndex: state.cycleIndex + 1 };
 }
 
+function getRotation(hex: { q: number; r: number }, rotationMode: RotationMode): number {
+	return rotationMode === "auto" ? hexRotation(hex) : rotationMode;
+}
+
 export const useCanvasStore = create<CanvasState>((set, get) => ({
 	cells: new Map(),
 	activeColor: NIX_BLUE.colors[0],
@@ -56,6 +106,45 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 	colorMode: "stable",
 	cycleIndex: 0,
 	viewport: DEFAULT_VIEWPORT,
+	brushWidth: 1,
+	eraserWidth: 1,
+	paintMode: "paint",
+	paintRotation: "auto",
+	nodeRotation: "auto",
+	nodePoints: [],
+	backgroundColor: "#1a1a2e",
+	exportBackground: false,
+	past: [],
+	future: [],
+
+	pushHistory: () =>
+		set((state) => {
+			const MAX_HISTORY = 50;
+			const newPast = [...state.past, new Map(state.cells)].slice(-MAX_HISTORY);
+			return { past: newPast, future: [] };
+		}),
+
+	undo: () =>
+		set((state) => {
+			if (state.past.length === 0) return state;
+			const prev = state.past[state.past.length - 1]!;
+			return {
+				past: state.past.slice(0, -1),
+				future: [new Map(state.cells), ...state.future],
+				cells: new Map(prev),
+			};
+		}),
+
+	redo: () =>
+		set((state) => {
+			if (state.future.length === 0) return state;
+			const next = state.future[0]!;
+			return {
+				past: [...state.past, new Map(state.cells)],
+				future: state.future.slice(1),
+				cells: new Map(next),
+			};
+		}),
 
 	fillCell: (key) =>
 		set((state) => {
@@ -63,7 +152,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 			const hex = parseHexKey(key);
 			const { color, cycleIndex } = getColor(state);
 			const newCells = new Map(state.cells);
-			newCells.set(key, { color, rotation: hexRotation(hex) });
+			newCells.set(key, { color, rotation: getRotation(hex, state.paintRotation) });
 			return { cells: newCells, cycleIndex };
 		}),
 
@@ -76,38 +165,85 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 		}),
 
 	paintAtPixel: (x, y) => {
-		const hex = pixelToHex(x, y);
-		get().fillCell(hexKey(hex));
-	},
-
-	paintLine: (x1, y1, x2, y2) => {
-		const hexes = hexesOnLine(x1, y1, x2, y2);
-		set((state) => {
-			const newCells = new Map(state.cells);
+		const center = pixelToHex(x, y);
+		const state = get();
+		const hexes = hexesInRadius(center, state.brushWidth);
+		set((s) => {
+			const newCells = new Map(s.cells);
 			let changed = false;
-			let idx = state.cycleIndex;
+			let idx = s.cycleIndex;
 			for (const hex of hexes) {
 				const key = hexKey(hex);
 				if (!newCells.has(key)) {
 					let color: string;
-					if (state.colorMode === "cycle") {
-						color = state.activePalette.colors[idx % state.activePalette.colors.length]!;
+					if (s.colorMode === "cycle") {
+						color = s.activePalette.colors[idx % s.activePalette.colors.length]!;
 						idx++;
 					} else {
-						color = state.activeColor;
+						color = s.activeColor;
 					}
-					newCells.set(key, { color, rotation: hexRotation(hex) });
+					newCells.set(key, { color, rotation: getRotation(hex, s.paintRotation) });
 					changed = true;
 				}
 			}
-			return changed ? { cells: newCells, cycleIndex: idx } : state;
+			return changed ? { cells: newCells, cycleIndex: idx } : s;
+		});
+	},
+
+	paintLine: (x1, y1, x2, y2) => {
+		const lineHexes = hexesOnLine(x1, y1, x2, y2);
+		const state = get();
+		set((s) => {
+			const newCells = new Map(s.cells);
+			let changed = false;
+			let idx = s.cycleIndex;
+			for (const lineHex of lineHexes) {
+				const area = hexesInRadius(lineHex, state.brushWidth);
+				for (const hex of area) {
+					const key = hexKey(hex);
+					if (!newCells.has(key)) {
+						let color: string;
+						if (s.colorMode === "cycle") {
+							color = s.activePalette.colors[idx % s.activePalette.colors.length]!;
+							idx++;
+						} else {
+							color = s.activeColor;
+						}
+						newCells.set(key, { color, rotation: getRotation(hex, s.paintRotation) });
+						changed = true;
+					}
+				}
+			}
+			return changed ? { cells: newCells, cycleIndex: idx } : s;
 		});
 	},
 
 	eraseLine: (x1, y1, x2, y2) => {
-		const hexes = hexesOnLine(x1, y1, x2, y2);
-		set((state) => {
-			const newCells = new Map(state.cells);
+		const lineHexes = hexesOnLine(x1, y1, x2, y2);
+		const state = get();
+		set((s) => {
+			const newCells = new Map(s.cells);
+			let changed = false;
+			for (const lineHex of lineHexes) {
+				const area = hexesInRadius(lineHex, state.eraserWidth);
+				for (const hex of area) {
+					const key = hexKey(hex);
+					if (newCells.has(key)) {
+						newCells.delete(key);
+						changed = true;
+					}
+				}
+			}
+			return changed ? { cells: newCells } : s;
+		});
+	},
+
+	eraseAtPixel: (x, y) => {
+		const center = pixelToHex(x, y);
+		const state = get();
+		const hexes = hexesInRadius(center, state.eraserWidth);
+		set((s) => {
+			const newCells = new Map(s.cells);
 			let changed = false;
 			for (const hex of hexes) {
 				const key = hexKey(hex);
@@ -116,18 +252,70 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 					changed = true;
 				}
 			}
-			return changed ? { cells: newCells } : state;
+			return changed ? { cells: newCells } : s;
 		});
 	},
+
+	nodeClick: (x, y) => {
+		const state = get();
+		const prevPoints = state.nodePoints;
+		const newPoint = { x, y };
+
+		if (prevPoints.length > 0) {
+			const last = prevPoints[prevPoints.length - 1]!;
+			const lineHexes = hexesOnLine(last.x, last.y, x, y);
+			set((s) => {
+				const newCells = new Map(s.cells);
+				let changed = false;
+				let idx = s.cycleIndex;
+				for (const hex of lineHexes) {
+					const key = hexKey(hex);
+					if (!newCells.has(key)) {
+						let color: string;
+						if (s.colorMode === "cycle") {
+							color = s.activePalette.colors[idx % s.activePalette.colors.length]!;
+							idx++;
+						} else {
+							color = s.activeColor;
+						}
+						newCells.set(key, { color, rotation: getRotation(hex, s.nodeRotation) });
+						changed = true;
+					}
+				}
+				return {
+					...(changed ? { cells: newCells, cycleIndex: idx } : {}),
+					nodePoints: [...prevPoints, newPoint],
+				};
+			});
+		} else {
+			set({ nodePoints: [newPoint] });
+		}
+	},
+
+	clearNodePoints: () => set({ nodePoints: [] }),
 
 	setActiveColor: (color) => set({ activeColor: color }),
 
 	setActivePalette: (palette) =>
 		set({ activePalette: palette, activeColor: palette.colors[0], cycleIndex: 0 }),
 
-	setMode: (mode) => set({ mode }),
+	setMode: (mode) => {
+		const prev = get().mode;
+		if (prev === "node" && mode !== "node") {
+			set({ mode, nodePoints: [] });
+		} else {
+			set({ mode });
+		}
+	},
 
 	setColorMode: (colorMode) => set({ colorMode }),
+	setBrushWidth: (brushWidth) => set({ brushWidth }),
+	setEraserWidth: (eraserWidth) => set({ eraserWidth }),
+	setPaintMode: (paintMode) => set({ paintMode }),
+	setPaintRotation: (paintRotation) => set({ paintRotation }),
+	setNodeRotation: (nodeRotation) => set({ nodeRotation }),
+	setBackgroundColor: (backgroundColor) => set({ backgroundColor }),
+	setExportBackground: (exportBackground) => set({ exportBackground }),
 
 	setViewport: (viewport) => set({ viewport }),
 
@@ -169,7 +357,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 			};
 		}),
 
-	clearAll: () => set({ cells: new Map() }),
+	clearAll: () => {
+		get().pushHistory();
+		set({ cells: new Map() });
+	},
 
 	loadCells: (cells) => set({ cells }),
 }));

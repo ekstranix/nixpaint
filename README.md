@@ -1,5 +1,8 @@
 # Nixpaint
 
+
+
+
 An online paint application where you paint with Nix lambda shapes. Lambdas are stamped along your brush strokes onto a hex grid, auto-rotated to tile seamlessly — just like the NixOS snowflake logo.
 
 ## Color Palettes

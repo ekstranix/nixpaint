@@ -20,6 +20,9 @@ test("can paint lambdas on canvas", async ({ page }) => {
 test("can switch palette", async ({ page }) => {
 	await page.goto("/");
 
+	// Select the Foreground Color tool to show palette options
+	await page.getByTitle("Foreground Color").click();
+
 	// Click the Rainbow palette button
 	await page.getByText("NixOS Rainbow").click();
 

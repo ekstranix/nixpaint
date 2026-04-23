@@ -6,16 +6,24 @@ TBD - created by archiving change project-setup. Update Purpose after archive.
 ### Requirement: SVG export
 The application SHALL allow the user to download their painting as an SVG file.
 
-#### Scenario: Export as SVG
-- **WHEN** user clicks "Export SVG"
-- **THEN** a `.svg` file is downloaded containing all painted lambdas with correct colors and transforms, cropped to the bounding box of the painting
+#### Scenario: Export as SVG without background
+- **WHEN** user clicks "Export SVG" and "export background" is unchecked
+- **THEN** a `.svg` file is downloaded containing all painted lambdas with no background rect
+
+#### Scenario: Export as SVG with background
+- **WHEN** user clicks "Export SVG" and "export background" is checked
+- **THEN** a `.svg` file is downloaded containing a background rect in the selected background color behind all painted lambdas
 
 ### Requirement: PNG export
 The application SHALL allow the user to download their painting as a PNG image, rasterized client-side without any server.
 
-#### Scenario: Export as PNG
-- **WHEN** user clicks "Export PNG"
-- **THEN** a `.png` file is downloaded with the painting rasterized at a reasonable resolution (minimum 2x display density)
+#### Scenario: Export as PNG without background
+- **WHEN** user clicks "Export PNG" and "export background" is unchecked
+- **THEN** a `.png` file is downloaded with transparent background
+
+#### Scenario: Export as PNG with background
+- **WHEN** user clicks "Export PNG" and "export background" is checked
+- **THEN** a `.png` file is downloaded with the selected background color
 
 ### Requirement: Export includes only painted content
 Both SVG and PNG exports SHALL be cropped to the bounding box of the painted lambdas, not the current viewport.
