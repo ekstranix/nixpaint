@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-24
+
 ### Added
 - Photoshop-style vertical side toolbar with Paint, Erase, and Pan tools
 - Zoom in/out buttons in top toolbar
