@@ -51,6 +51,18 @@ export function Toolbar({
 			<button type="button" onClick={() => setShowAbout(true)}>
 				About
 			</button>
+			<a
+				href="https://github.com/ekstranix/nixpaint"
+				target="_blank"
+				rel="noopener noreferrer"
+				className="github-stars"
+				title="Star on GitHub"
+			>
+				<img
+					src="https://img.shields.io/github/stars/ekstranix/nixpaint?style=social"
+					alt="GitHub stars"
+				/>
+			</a>
 			{showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
 		</div>
 	);

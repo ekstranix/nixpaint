@@ -252,3 +252,17 @@ svg {
 .toolbar-spacer {
 	margin-left: auto;
 }
+
+.github-stars {
+	display: flex;
+	align-items: center;
+	opacity: 0.6;
+}
+
+.github-stars:hover {
+	opacity: 0.85;
+}
+
+.github-stars img {
+	height: 20px;
+}
