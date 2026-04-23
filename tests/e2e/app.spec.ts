@@ -39,5 +39,5 @@ test("can export SVG", async ({ page }) => {
 	const downloadPromise = page.waitForEvent("download");
 	await page.getByText("Export SVG").click();
 	const download = await downloadPromise;
-	expect(download.suggestedFilename()).toBe("drawnix.svg");
+	expect(download.suggestedFilename()).toBe("nixpaint.svg");
 });
