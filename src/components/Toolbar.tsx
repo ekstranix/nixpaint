@@ -10,30 +10,40 @@ export function Toolbar({
 	onExportSvg: () => void;
 	onExportPng: () => void;
 }) {
-	const mode = useCanvasStore((s) => s.mode);
-	const setMode = useCanvasStore((s) => s.setMode);
 	const clearAll = useCanvasStore((s) => s.clearAll);
+	const zoomIn = useCanvasStore((s) => s.zoomIn);
+	const zoomOut = useCanvasStore((s) => s.zoomOut);
+	const colorMode = useCanvasStore((s) => s.colorMode);
+	const setColorMode = useCanvasStore((s) => s.setColorMode);
 	const [showAbout, setShowAbout] = useState(false);
 
 	return (
 		<div className="toolbar">
+			<Palette />
 			<div className="toolbar-group">
 				<button
 					type="button"
-					className={mode === "paint" ? "active" : ""}
-					onClick={() => setMode("paint")}
+					className={colorMode === "stable" ? "active" : ""}
+					onClick={() => setColorMode("stable")}
 				>
-					Paint
+					Stable
 				</button>
 				<button
 					type="button"
-					className={mode === "erase" ? "active" : ""}
-					onClick={() => setMode("erase")}
+					className={colorMode === "cycle" ? "active" : ""}
+					onClick={() => setColorMode("cycle")}
 				>
-					Erase
+					Cycle
 				</button>
 			</div>
-			<Palette />
+			<div className="toolbar-group">
+				<button type="button" onClick={zoomIn} title="Zoom In">
+					+
+				</button>
+				<button type="button" onClick={zoomOut} title="Zoom Out">
+					&minus;
+				</button>
+			</div>
 			<div className="toolbar-group">
 				<button type="button" onClick={clearAll}>
 					Clear

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { hexToPixel, parseHexKey } from "../lib/grid";
 import { useCanvasStore } from "../store/canvas";
 import type { Viewport } from "../types";
@@ -15,130 +15,154 @@ function isVisible(px: number, py: number, vp: Viewport): boolean {
 	);
 }
 
+/** Convert screen coordinates to SVG viewBox coordinates using the SVG's own transform matrix. */
+function screenToSvg(svg: SVGSVGElement, screenX: number, screenY: number): DOMPoint {
+	const ctm = svg.getScreenCTM();
+	if (!ctm) return new DOMPoint(screenX, screenY);
+	return new DOMPoint(screenX, screenY).matrixTransform(ctm.inverse());
+}
+
+interface PanState {
+	startScreenX: number;
+	startScreenY: number;
+	startVp: Viewport;
+	/** CTM captured at pan start, used for consistent delta calculation */
+	ctm: DOMMatrix;
+}
+
 export function Canvas() {
 	const svgRef = useRef<SVGSVGElement>(null);
 	const isPainting = useRef(false);
+	const isPanning = useRef(false);
 	const lastPixel = useRef<{ x: number; y: number } | null>(null);
+	const panStart = useRef<PanState | null>(null);
 
 	const cells = useCanvasStore((s) => s.cells);
 	const viewport = useCanvasStore((s) => s.viewport);
 	const mode = useCanvasStore((s) => s.mode);
-	const paintLine = useCanvasStore((s) => s.paintLine);
-	const paintAtPixel = useCanvasStore((s) => s.paintAtPixel);
-	const eraseLine = useCanvasStore((s) => s.eraseLine);
-	const setViewport = useCanvasStore((s) => s.setViewport);
 
-	const svgPointFromEvent = useCallback(
-		(e: React.PointerEvent | PointerEvent): { x: number; y: number } => {
-			return {
-				x: viewport.x + (e.clientX / window.innerWidth) * viewport.width,
-				y: viewport.y + (e.clientY / window.innerHeight) * viewport.height,
-			};
-		},
-		[viewport],
-	);
-
-	const handlePointerDown = useCallback(
-		(e: React.PointerEvent) => {
-			if (e.button === 1) return; // Middle click reserved for pan
-			isPainting.current = true;
-			const pt = svgPointFromEvent(e);
-			lastPixel.current = pt;
-
-			if (mode === "paint") {
-				paintAtPixel(pt.x, pt.y);
-			} else {
-				eraseLine(pt.x, pt.y, pt.x, pt.y);
-			}
-			(e.target as Element).setPointerCapture(e.pointerId);
-		},
-		[mode, paintAtPixel, eraseLine, svgPointFromEvent],
-	);
-
-	const handlePointerMove = useCallback(
-		(e: React.PointerEvent) => {
-			if (!isPainting.current || !lastPixel.current) return;
-			const pt = svgPointFromEvent(e);
-			const prev = lastPixel.current;
-
-			if (mode === "paint") {
-				paintLine(prev.x, prev.y, pt.x, pt.y);
-			} else {
-				eraseLine(prev.x, prev.y, pt.x, pt.y);
-			}
-			lastPixel.current = pt;
-		},
-		[mode, paintLine, eraseLine, svgPointFromEvent],
-	);
-
-	const handlePointerUp = useCallback(() => {
-		isPainting.current = false;
-		lastPixel.current = null;
-	}, []);
-
-	// Pan with middle mouse button
-	const panStart = useRef<{ x: number; y: number; vp: Viewport } | null>(null);
-
-	const handleMiddleDown = useCallback(
-		(e: React.PointerEvent) => {
-			if (e.button !== 1) return;
-			e.preventDefault();
-			panStart.current = { x: e.clientX, y: e.clientY, vp: { ...viewport } };
-			(e.target as Element).setPointerCapture(e.pointerId);
-		},
-		[viewport],
-	);
-
-	const handlePanMove = useCallback(
-		(e: React.PointerEvent) => {
-			if (!panStart.current) return;
-			if (e.buttons !== 4) {
-				panStart.current = null;
-				return;
-			}
-			const dx = ((e.clientX - panStart.current.x) / window.innerWidth) * panStart.current.vp.width;
-			const dy =
-				((e.clientY - panStart.current.y) / window.innerHeight) * panStart.current.vp.height;
-			setViewport({
-				...panStart.current.vp,
-				x: panStart.current.vp.x - dx,
-				y: panStart.current.vp.y - dy,
-			});
-		},
-		[setViewport],
-	);
-
-	// Zoom with wheel
 	useEffect(() => {
 		const svg = svgRef.current;
 		if (!svg) return;
 
+		const handlePointerDown = (e: PointerEvent) => {
+			const { mode } = useCanvasStore.getState();
+
+			// Pan: middle-click always, or left-click in pan mode
+			if (e.button === 1 || (e.button === 0 && mode === "pan")) {
+				e.preventDefault();
+				isPanning.current = true;
+				const ctm = svg.getScreenCTM();
+				panStart.current = {
+					startScreenX: e.clientX,
+					startScreenY: e.clientY,
+					startVp: { ...useCanvasStore.getState().viewport },
+					ctm: ctm || new DOMMatrix(),
+				};
+				svg.setPointerCapture(e.pointerId);
+				return;
+			}
+
+			if (e.button !== 0) return;
+
+			isPainting.current = true;
+			const pt = screenToSvg(svg, e.clientX, e.clientY);
+			lastPixel.current = { x: pt.x, y: pt.y };
+
+			const store = useCanvasStore.getState();
+			if (mode === "paint") {
+				store.paintAtPixel(pt.x, pt.y);
+			} else if (mode === "erase") {
+				store.eraseLine(pt.x, pt.y, pt.x, pt.y);
+			}
+			svg.setPointerCapture(e.pointerId);
+		};
+
+		const handlePointerMove = (e: PointerEvent) => {
+			// Panning
+			if (isPanning.current && panStart.current) {
+				const hasButton = (e.buttons & 4) !== 0 || (e.buttons & 1) !== 0;
+				if (!hasButton) {
+					isPanning.current = false;
+					panStart.current = null;
+					return;
+				}
+				// Use the CTM from pan start for consistent deltas
+				const ps = panStart.current;
+				const inv = ps.ctm.inverse();
+				const startSvg = new DOMPoint(ps.startScreenX, ps.startScreenY).matrixTransform(inv);
+				const curSvg = new DOMPoint(e.clientX, e.clientY).matrixTransform(inv);
+				const dx = curSvg.x - startSvg.x;
+				const dy = curSvg.y - startSvg.y;
+				useCanvasStore.getState().setViewport({
+					...ps.startVp,
+					x: ps.startVp.x - dx,
+					y: ps.startVp.y - dy,
+				});
+				return;
+			}
+
+			// Painting/erasing
+			if (!isPainting.current || !lastPixel.current) return;
+			const pt = screenToSvg(svg, e.clientX, e.clientY);
+			const prev = lastPixel.current;
+			const { mode } = useCanvasStore.getState();
+
+			if (mode === "paint") {
+				useCanvasStore.getState().paintLine(prev.x, prev.y, pt.x, pt.y);
+			} else if (mode === "erase") {
+				useCanvasStore.getState().eraseLine(prev.x, prev.y, pt.x, pt.y);
+			}
+			lastPixel.current = { x: pt.x, y: pt.y };
+		};
+
+		const handlePointerUp = () => {
+			isPainting.current = false;
+			isPanning.current = false;
+			lastPixel.current = null;
+			panStart.current = null;
+		};
+
 		const handleWheel = (e: WheelEvent) => {
 			e.preventDefault();
-			const store = useCanvasStore.getState();
-			const vp = store.viewport;
+			const vp = useCanvasStore.getState().viewport;
 			const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
 
-			// Zoom around cursor position
-			const cursorX = vp.x + (e.clientX / window.innerWidth) * vp.width;
-			const cursorY = vp.y + (e.clientY / window.innerHeight) * vp.height;
+			// Zoom around cursor position using SVG's own coordinate transform
+			const cursor = screenToSvg(svg, e.clientX, e.clientY);
 
 			const newWidth = vp.width * zoomFactor;
 			const newHeight = vp.height * zoomFactor;
-			const newX = cursorX - (e.clientX / window.innerWidth) * newWidth;
-			const newY = cursorY - (e.clientY / window.innerHeight) * newHeight;
 
-			store.setViewport({
-				x: newX,
-				y: newY,
+			// cursor.x should stay at the same screen position after zoom
+			// cursor.x = newVp.x + fracX * newWidth, where fracX is the same proportion
+			const fracX = (cursor.x - vp.x) / vp.width;
+			const fracY = (cursor.y - vp.y) / vp.height;
+
+			useCanvasStore.getState().setViewport({
+				x: cursor.x - fracX * newWidth,
+				y: cursor.y - fracY * newHeight,
 				width: newWidth,
 				height: newHeight,
 				zoom: vp.zoom / zoomFactor,
 			});
 		};
 
+		const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+
+		svg.addEventListener("pointerdown", handlePointerDown);
+		svg.addEventListener("pointermove", handlePointerMove);
+		svg.addEventListener("pointerup", handlePointerUp);
 		svg.addEventListener("wheel", handleWheel, { passive: false });
-		return () => svg.removeEventListener("wheel", handleWheel);
+		svg.addEventListener("contextmenu", handleContextMenu);
+
+		return () => {
+			svg.removeEventListener("pointerdown", handlePointerDown);
+			svg.removeEventListener("pointermove", handlePointerMove);
+			svg.removeEventListener("pointerup", handlePointerUp);
+			svg.removeEventListener("wheel", handleWheel);
+			svg.removeEventListener("contextmenu", handleContextMenu);
+		};
 	}, []);
 
 	// Collect visible cells
@@ -161,22 +185,13 @@ export function Canvas() {
 		<svg
 			ref={svgRef}
 			style={{
-				width: "100vw",
-				height: "100vh",
+				width: "100%",
+				height: "100%",
 				display: "block",
-				cursor: mode === "erase" ? "crosshair" : "default",
+				cursor: mode === "erase" ? "crosshair" : mode === "pan" ? "grab" : "default",
 			}}
 			viewBox={`${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}`}
-			onPointerDown={(e) => {
-				handleMiddleDown(e);
-				handlePointerDown(e);
-			}}
-			onPointerMove={(e) => {
-				handlePanMove(e);
-				handlePointerMove(e);
-			}}
-			onPointerUp={handlePointerUp}
-			onContextMenu={(e) => e.preventDefault()}
+			preserveAspectRatio="none"
 		>
 			<title>Nixpaint Canvas</title>
 			{visibleLambdas.map(({ key, x, y, rotation, color }) => (

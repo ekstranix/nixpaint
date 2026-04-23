@@ -30,6 +30,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
 					&times;
 				</button>
 				<h2>nixpaint</h2>
+				<p>v{__APP_VERSION__}</p>
 				<p>&copy; 2026 Pim Snel</p>
 				<p>MIT License</p>
 				<p>
@@ -40,6 +41,15 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
 				<p>
 					<a href="https://github.com/ekstranix/nixpaint" target="_blank" rel="noopener noreferrer">
 						GitHub
+					</a>
+				</p>
+				<p>
+					<a
+						href="https://github.com/ekstranix/nixpaint/releases"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						Changelog
 					</a>
 				</p>
 			</div>

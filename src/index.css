@@ -14,11 +14,51 @@ body {
 .app {
 	width: 100vw;
 	height: 100vh;
+	display: grid;
+	grid-template-areas:
+		"header header"
+		"sidebar canvas";
+	grid-template-columns: 40px 1fr;
+	grid-template-rows: auto 1fr;
+}
+
+.side-toolbar {
+	grid-area: sidebar;
 	display: flex;
 	flex-direction: column;
+	gap: 2px;
+	padding: 4px;
+	background: #16213e;
+	border-right: 1px solid #0f3460;
+	z-index: 10;
+}
+
+.side-toolbar button {
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 1px solid transparent;
+	background: transparent;
+	color: #e0e0e0;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.side-toolbar button:hover {
+	background: #0f3460;
+}
+
+.side-toolbar button.active {
+	background: #5277c3;
+	border-color: #7ebae4;
 }
 
 .toolbar {
+	grid-area: header;
 	display: flex;
 	align-items: center;
 	gap: 16px;
@@ -26,7 +66,6 @@ body {
 	background: #16213e;
 	border-bottom: 1px solid #0f3460;
 	z-index: 10;
-	flex-shrink: 0;
 }
 
 .toolbar-group {
@@ -85,8 +124,10 @@ button.swatch.active {
 }
 
 svg {
-	flex: 1;
+	grid-area: canvas;
 	background: #1a1a2e;
+	min-width: 0;
+	min-height: 0;
 }
 
 .about-dialog {

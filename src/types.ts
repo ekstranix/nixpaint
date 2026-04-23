@@ -1,4 +1,6 @@
-export type Mode = "paint" | "erase";
+export type Mode = "paint" | "erase" | "pan";
+
+export type ColorMode = "stable" | "cycle";
 
 export interface CellData {
 	color: string;

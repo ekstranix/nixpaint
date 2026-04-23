@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Canvas } from "./components/Canvas";
+import { SideToolbar } from "./components/SideToolbar";
 import { Toolbar } from "./components/Toolbar";
 import { hexToPixel, parseHexKey } from "./lib/grid";
 import { LAMBDA_PATH } from "./lib/lambda-path";
@@ -143,6 +144,7 @@ export function App() {
 	return (
 		<div className="app">
 			<Toolbar onExportSvg={handleExportSvg} onExportPng={handleExportPng} />
+			<SideToolbar />
 			<Canvas />
 		</div>
 	);
