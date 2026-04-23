@@ -17,7 +17,14 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
 	};
 
 	return (
-		<dialog ref={ref} className="about-dialog" onClick={handleBackdropClick}>
+		<dialog
+			ref={ref}
+			className="about-dialog"
+			onClick={handleBackdropClick}
+			onKeyDown={(e) => {
+				if (e.key === "Escape") ref.current?.close();
+			}}
+		>
 			<div className="about-content">
 				<button type="button" className="about-close" onClick={onClose}>
 					&times;
