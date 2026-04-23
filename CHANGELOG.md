@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-24
+
 ### Added
 - Context-sensitive tool options bar below top toolbar
 - Node tool for point-to-point line drawing
