@@ -1,7 +1,24 @@
+import { useEffect, useRef } from "react";
+
 export function AboutDialog({ onClose }: { onClose: () => void }) {
+	const ref = useRef<HTMLDialogElement>(null);
+
+	useEffect(() => {
+		const dialog = ref.current;
+		if (!dialog) return;
+		dialog.showModal();
+		const handleClose = () => onClose();
+		dialog.addEventListener("close", handleClose);
+		return () => dialog.removeEventListener("close", handleClose);
+	}, [onClose]);
+
+	const handleBackdropClick = (e: React.MouseEvent) => {
+		if (e.target === ref.current) ref.current?.close();
+	};
+
 	return (
-		<div className="about-backdrop" onClick={onClose}>
-			<div className="about-dialog" onClick={(e) => e.stopPropagation()}>
+		<dialog ref={ref} className="about-dialog" onClick={handleBackdropClick}>
+			<div className="about-content">
 				<button type="button" className="about-close" onClick={onClose}>
 					&times;
 				</button>
@@ -14,15 +31,11 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
 					</a>
 				</p>
 				<p>
-					<a
-						href="https://github.com/ekstranix/nixpaint"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
+					<a href="https://github.com/ekstranix/nixpaint" target="_blank" rel="noopener noreferrer">
 						GitHub
 					</a>
 				</p>
 			</div>
-		</div>
+		</dialog>
 	);
 }
