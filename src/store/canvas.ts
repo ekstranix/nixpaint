@@ -85,12 +85,15 @@ const DEFAULT_VIEWPORT: Viewport = {
 
 const ZOOM_FACTOR = 1.25;
 
+function cycleColor(colors: readonly [string, ...string[]], idx: number): string {
+	return colors[idx % colors.length] ?? colors[0];
+}
+
 function getColor(state: CanvasState): { color: string; cycleIndex: number } {
 	if (state.colorMode === "stable") {
 		return { color: state.activeColor, cycleIndex: state.cycleIndex };
 	}
-	const colors = state.activePalette.colors;
-	const color = colors[state.cycleIndex % colors.length]!;
+	const color = cycleColor(state.activePalette.colors, state.cycleIndex);
 	return { color, cycleIndex: state.cycleIndex + 1 };
 }
 
@@ -126,8 +129,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
 	undo: () =>
 		set((state) => {
-			if (state.past.length === 0) return state;
-			const prev = state.past[state.past.length - 1]!;
+			const prev = state.past[state.past.length - 1];
+			if (!prev) return state;
 			return {
 				past: state.past.slice(0, -1),
 				future: [new Map(state.cells), ...state.future],
@@ -137,8 +140,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
 	redo: () =>
 		set((state) => {
-			if (state.future.length === 0) return state;
-			const next = state.future[0]!;
+			const next = state.future[0];
+			if (!next) return state;
 			return {
 				past: [...state.past, new Map(state.cells)],
 				future: state.future.slice(1),
@@ -177,7 +180,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 				if (!newCells.has(key)) {
 					let color: string;
 					if (s.colorMode === "cycle") {
-						color = s.activePalette.colors[idx % s.activePalette.colors.length]!;
+						color = cycleColor(s.activePalette.colors, idx);
 						idx++;
 					} else {
 						color = s.activeColor;
@@ -204,7 +207,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 					if (!newCells.has(key)) {
 						let color: string;
 						if (s.colorMode === "cycle") {
-							color = s.activePalette.colors[idx % s.activePalette.colors.length]!;
+							color = cycleColor(s.activePalette.colors, idx);
 							idx++;
 						} else {
 							color = s.activeColor;
@@ -261,8 +264,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 		const prevPoints = state.nodePoints;
 		const newPoint = { x, y };
 
-		if (prevPoints.length > 0) {
-			const last = prevPoints[prevPoints.length - 1]!;
+		const last = prevPoints[prevPoints.length - 1];
+		if (last) {
 			const lineHexes = hexesOnLine(last.x, last.y, x, y);
 			set((s) => {
 				const newCells = new Map(s.cells);
@@ -273,7 +276,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 					if (!newCells.has(key)) {
 						let color: string;
 						if (s.colorMode === "cycle") {
-							color = s.activePalette.colors[idx % s.activePalette.colors.length]!;
+							color = cycleColor(s.activePalette.colors, idx);
 							idx++;
 						} else {
 							color = s.activeColor;

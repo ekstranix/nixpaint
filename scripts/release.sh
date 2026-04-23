@@ -3,6 +3,30 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
+# --- Pre-flight checks ---
+echo "Running pre-flight checks..."
+
+echo "  Checking for clean working tree..."
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Error: Working tree is not clean. Commit or stash changes first."
+  exit 1
+fi
+
+echo "  Running lint..."
+pnpm lint || { echo "Error: Lint failed."; exit 1; }
+
+echo "  Running typecheck..."
+pnpm typecheck || { echo "Error: Typecheck failed."; exit 1; }
+
+echo "  Running tests..."
+pnpm test || { echo "Error: Tests failed."; exit 1; }
+
+echo "  Building..."
+pnpm build || { echo "Error: Build failed."; exit 1; }
+
+echo "All checks passed."
+echo ""
+
 # --- Read current version ---
 CURRENT_VERSION=$(node -p "require('./package.json').version")
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
