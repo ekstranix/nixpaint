@@ -12,7 +12,10 @@ const BG_COLORS: Array<{ color: BackgroundColor; label: string }> = [
 function RotationSelector({
 	value,
 	onChange,
-}: { value: RotationMode; onChange: (r: RotationMode) => void }) {
+}: {
+	value: RotationMode;
+	onChange: (r: RotationMode) => void;
+}) {
 	return (
 		<label className="option-label">
 			Rotation
@@ -37,7 +40,11 @@ function WidthSelector({
 	label,
 	value,
 	onChange,
-}: { label: string; value: number; onChange: (w: number) => void }) {
+}: {
+	label: string;
+	value: number;
+	onChange: (w: number) => void;
+}) {
 	return (
 		<label className="option-label">
 			{label}

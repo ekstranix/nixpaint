@@ -24,12 +24,7 @@ export function Toolbar({
 				<button type="button" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
 					Undo
 				</button>
-				<button
-					type="button"
-					onClick={redo}
-					disabled={!canRedo}
-					title="Redo (Ctrl+Shift+Z)"
-				>
+				<button type="button" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
 					Redo
 				</button>
 			</div>

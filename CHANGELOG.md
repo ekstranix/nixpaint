@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Pre-flight checks in release script (clean tree, typecheck, tests, lint, build)
+
+### Fixed
+- Biome lint errors: non-null assertions replaced with safe accessors
+- Biome formatting in ToolOptionsBar, Toolbar, and import ordering in store
+- Release script uses system `biome` binary (NixOS compatible) instead of node_modules
+
 ## [0.3.0] - 2026-04-24
 
 ### Added
