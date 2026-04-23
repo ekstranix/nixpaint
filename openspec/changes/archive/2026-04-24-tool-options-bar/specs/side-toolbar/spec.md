@@ -1,8 +1,5 @@
-# side-toolbar Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change toolbar-redesign. Update Purpose after archive.
-## Requirements
 ### Requirement: Vertical side toolbar
 The application SHALL display a vertical toolbar on the left side of the canvas containing tool selection buttons: Paint, Erase, Pan, Node, Foreground Color, and Background Color.
 

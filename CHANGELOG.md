@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Context-sensitive tool options bar below top toolbar
+- Node tool for point-to-point line drawing
+- Brush width control for paint tool
+- Eraser size control
+- Paint/stamp mode toggle
+- Rotation mode override (auto-cycle or fixed angle) for paint and node tools
+- Background color selector (white, gray, dark blue)
+- Export background toggle for SVG/PNG export
+- Grayscale palette
+- Foreground and background color tools in side toolbar
+- Undo/redo with Ctrl+Z / Ctrl+Shift+Z keyboard shortcuts
+- Undo/redo buttons in top toolbar
+- Umami analytics tracking
+
+### Changed
+- Palette selector and color mode toggle moved to tool options bar (foreground color tool)
+- Top toolbar simplified to app-level actions only (undo/redo, zoom, clear, export, about)
+- Layout expanded to 3-row grid (header, options bar, sidebar+canvas)
+
 ## [0.2.0] - 2026-04-24
 
 ### Added

@@ -13,18 +13,24 @@ The toolbar SHALL display an "About" button at the far right that opens the abou
 ### Requirement: About dialog content
 The about dialog SHALL display the following information:
 - Project name: "nixpaint"
+- Version: the current build version (e.g. "v0.2.0")
 - Copyright: "© 2026 Pim Snel"
 - License: "MIT License"
 - Link to extranix.com
 - Link to the GitHub repository (github.com/ekstranix/nixpaint)
+- Link to changelog (GitHub releases page)
 
 #### Scenario: Dialog shows all required info
 - **WHEN** the about dialog is open
-- **THEN** the dialog SHALL show the project name, copyright, license, and both links
+- **THEN** the dialog SHALL show the project name, version, copyright, license, and all links
 
-#### Scenario: Links are clickable
+#### Scenario: Version reflects build
 - **WHEN** the about dialog is open
-- **THEN** the links to extranix.com and the GitHub repo SHALL open in a new tab when clicked
+- **THEN** the displayed version SHALL match the version the app was built with
+
+#### Scenario: Changelog link opens GitHub releases
+- **WHEN** user clicks the changelog link
+- **THEN** the GitHub releases page SHALL open in a new tab
 
 ### Requirement: About dialog dismissal
 The about dialog SHALL be dismissable by clicking the backdrop or a close button.

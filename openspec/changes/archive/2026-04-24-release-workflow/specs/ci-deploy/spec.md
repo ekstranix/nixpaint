@@ -1,8 +1,5 @@
-# ci-deploy Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change deploy-pages-main. Update Purpose after archive.
-## Requirements
 ### Requirement: Build and publish to pages-main on tag push
 The CI workflow SHALL build the Vite app and force-push the contents of `dist/` to the `pages-main` branch whenever a version tag (`v*`) is pushed.
 

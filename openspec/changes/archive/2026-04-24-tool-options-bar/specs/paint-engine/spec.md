@@ -1,8 +1,5 @@
-# paint-engine Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change project-setup. Update Purpose after archive.
-## Requirements
 ### Requirement: Paint by dragging
 The application SHALL fill hex grid cells with lambdas as the user paints by pressing and dragging the pointer across the canvas. Paint mode is selectable from the side toolbar. Pointer position SHALL be converted to SVG coordinates using the native `getScreenCTM()` transform for exact mapping at all zoom levels.
 
@@ -21,6 +18,8 @@ The application SHALL fill hex grid cells with lambdas as the user paints by pre
 #### Scenario: No coordinate drift during extended painting
 - **WHEN** user paints continuously for an extended session with panning and zooming interspersed
 - **THEN** lambdas SHALL always appear exactly under the pointer with no accumulated drift
+
+## ADDED Requirements
 
 ### Requirement: Brush width
 The paint tool SHALL support a configurable brush width (radius in hex cells). Width 1 fills a single cell. Width 2 fills the center cell and its 6 neighbors. Width 3 fills 2 rings of neighbors.
@@ -56,18 +55,3 @@ The application SHALL provide an erase mode, selectable from the side toolbar, t
 #### Scenario: Erase by dragging
 - **WHEN** erase mode is active and user drags across filled cells
 - **THEN** those cells are cleared (lambdas removed), expanding to the configured eraser width
-
-### Requirement: Clear canvas
-The application SHALL provide a way to clear all lambdas from the canvas.
-
-#### Scenario: Clear all
-- **WHEN** user activates "Clear" action
-- **THEN** all filled cells are removed and the canvas is empty
-
-### Requirement: Pan mode
-The application SHALL provide a pan mode, selectable from the side toolbar, that pans the canvas with left-click drag.
-
-#### Scenario: Pan mode does not paint
-- **WHEN** pan mode is active and user clicks or drags on the canvas
-- **THEN** no cells SHALL be filled or erased
-
