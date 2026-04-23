@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Favicon
+
 ## [0.3.1] - 2026-04-24
 
 ### Added
