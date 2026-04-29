@@ -1,4 +1,18 @@
-export type Mode = "paint" | "erase" | "pan" | "node" | "foreground" | "background";
+export type Mode = "paint" | "erase" | "pan" | "node" | "select" | "foreground" | "background";
+
+export interface SelectionRect {
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+}
+
+export interface DragMove {
+	startX: number;
+	startY: number;
+	currentX: number;
+	currentY: number;
+}
 
 export type ColorMode = "stable" | "cycle";
 

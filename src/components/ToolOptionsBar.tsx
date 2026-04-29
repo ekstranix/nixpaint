@@ -159,6 +159,79 @@ function ForegroundOptions() {
 	);
 }
 
+function SelectOptions() {
+	const selectedCells = useCanvasStore((s) => s.selectedCells);
+	const rotateSelected = useCanvasStore((s) => s.rotateSelected);
+	const orbitSelected = useCanvasStore((s) => s.orbitSelected);
+	const deleteSelected = useCanvasStore((s) => s.deleteSelected);
+	const recolorSelected = useCanvasStore((s) => s.recolorSelected);
+	const activeColor = useCanvasStore((s) => s.activeColor);
+	const activePalette = useCanvasStore((s) => s.activePalette);
+	const setActiveColor = useCanvasStore((s) => s.setActiveColor);
+	const setActivePalette = useCanvasStore((s) => s.setActivePalette);
+
+	const hasSelection = selectedCells.size > 0;
+
+	return (
+		<>
+			<span className="option-hint">
+				{hasSelection ? `${selectedCells.size} selected` : "Click or drag to select"}
+			</span>
+			{hasSelection && (
+				<>
+					<div className="toolbar-group">
+						<button type="button" title="Rotate -60°" onClick={() => rotateSelected(-60)}>
+							↶
+						</button>
+						<button type="button" title="Rotate +60°" onClick={() => rotateSelected(60)}>
+							↷
+						</button>
+						<span className="option-label">Rotate</span>
+					</div>
+					<div className="toolbar-group">
+						<button type="button" title="Orbit -60°" onClick={() => orbitSelected(-60)}>
+							↶
+						</button>
+						<button type="button" title="Orbit +60°" onClick={() => orbitSelected(60)}>
+							↷
+						</button>
+						<span className="option-label">Orbit</span>
+					</div>
+					<div className="toolbar-group">
+						{PALETTES.map((p) => (
+							<button
+								key={p.name}
+								type="button"
+								className={activePalette.name === p.name ? "active" : ""}
+								onClick={() => setActivePalette(p as typeof activePalette)}
+							>
+								{p.name}
+							</button>
+						))}
+					</div>
+					<div className="color-swatches">
+						{activePalette.colors.map((color) => (
+							<button
+								key={color}
+								type="button"
+								className={`swatch ${activeColor === color ? "active" : ""}`}
+								style={{ background: color }}
+								onClick={() => {
+									setActiveColor(color);
+									recolorSelected(color);
+								}}
+							/>
+						))}
+					</div>
+					<button type="button" title="Delete selected" onClick={deleteSelected}>
+						🗑️
+					</button>
+				</>
+			)}
+		</>
+	);
+}
+
 function BackgroundOptions() {
 	const backgroundColor = useCanvasStore((s) => s.backgroundColor);
 	const setBackgroundColor = useCanvasStore((s) => s.setBackgroundColor);
@@ -200,6 +273,7 @@ export function ToolOptionsBar() {
 			{mode === "erase" && <EraseOptions />}
 			{mode === "pan" && <span className="option-hint">Drag to pan the canvas</span>}
 			{mode === "node" && <NodeOptions />}
+			{mode === "select" && <SelectOptions />}
 			{mode === "foreground" && <ForegroundOptions />}
 			{mode === "background" && <BackgroundOptions />}
 		</div>

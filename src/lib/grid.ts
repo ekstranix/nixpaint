@@ -127,4 +127,49 @@ export function hexesOnLine(x1: number, y1: number, x2: number, y2: number): Hex
 	return results;
 }
 
+/**
+ * Rotate a hex coordinate around a center point by the given degrees (must be a multiple of 60).
+ * Uses cube coordinate rotation.
+ */
+export function hexRotateAround(
+	hex: HexCoord,
+	center: { q: number; r: number },
+	degrees: number,
+): HexCoord {
+	// Convert to cube coords relative to center
+	let dq = hex.q - center.q;
+	let dr = hex.r - center.r;
+	let ds = -dq - dr;
+
+	// Normalize degrees to 0-359
+	const steps = (((degrees / 60) % 6) + 6) % 6;
+
+	for (let i = 0; i < steps; i++) {
+		// 60° clockwise rotation in cube coords: (q,r,s) → (-r,-s,-q)
+		const newQ = -dr;
+		const newR = -ds;
+		const newS = -dq;
+		dq = newQ;
+		dr = newR;
+		ds = newS;
+	}
+
+	return hexRound(center.q + dq, center.r + dr);
+}
+
+/**
+ * Compute the centroid of a set of hex keys as fractional hex coordinates.
+ */
+export function selectionCentroid(hexKeys: string[]): { q: number; r: number } {
+	if (hexKeys.length === 0) return { q: 0, r: 0 };
+	let sumQ = 0;
+	let sumR = 0;
+	for (const key of hexKeys) {
+		const hex = parseHexKey(key);
+		sumQ += hex.q;
+		sumR += hex.r;
+	}
+	return { q: sumQ / hexKeys.length, r: sumR / hexKeys.length };
+}
+
 export { HEX_SIZE };

@@ -3,18 +3,23 @@ import {
 	hexesInRadius,
 	hexesOnLine,
 	hexKey,
+	hexRotateAround,
 	hexRotation,
+	hexToPixel,
 	parseHexKey,
 	pixelToHex,
+	selectionCentroid,
 } from "../lib/grid";
 import { NIX_BLUE, type Palette } from "../lib/palettes";
 import type {
 	BackgroundColor,
 	CellData,
 	ColorMode,
+	DragMove,
 	Mode,
 	PaintMode,
 	RotationMode,
+	SelectionRect,
 	Viewport,
 } from "../types";
 
@@ -40,6 +45,11 @@ interface CanvasState {
 	// Background
 	backgroundColor: BackgroundColor;
 	exportBackground: boolean;
+
+	// Selection
+	selectedCells: Set<string>;
+	selectionRect: SelectionRect | null;
+	dragMove: DragMove | null;
 
 	// History
 	past: Map<string, CellData>[];
@@ -68,6 +78,22 @@ interface CanvasState {
 	setNodeRotation: (rotation: RotationMode) => void;
 	setBackgroundColor: (color: BackgroundColor) => void;
 	setExportBackground: (enabled: boolean) => void;
+	// Selection actions
+	selectCell: (key: string) => void;
+	toggleSelectCell: (key: string) => void;
+	selectRegion: (rect: SelectionRect) => void;
+	addRegion: (rect: SelectionRect) => void;
+	clearSelection: () => void;
+	setSelectionRect: (rect: SelectionRect | null) => void;
+	setDragMove: (drag: DragMove | null) => void;
+
+	// Transform actions
+	rotateSelected: (delta: number) => void;
+	orbitSelected: (delta: number) => void;
+	moveSelected: (deltaQ: number, deltaR: number) => void;
+	recolorSelected: (color: string) => void;
+	deleteSelected: () => void;
+
 	setViewport: (viewport: Viewport) => void;
 	zoomIn: () => void;
 	zoomOut: () => void;
@@ -115,6 +141,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 	paintRotation: "auto",
 	nodeRotation: "auto",
 	nodePoints: [],
+	selectedCells: new Set(),
+	selectionRect: null,
+	dragMove: null,
 	backgroundColor: "#1a1a2e",
 	exportBackground: false,
 	past: [],
@@ -304,11 +333,186 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
 	setMode: (mode) => {
 		const prev = get().mode;
+		const updates: Partial<CanvasState> = { mode };
 		if (prev === "node" && mode !== "node") {
-			set({ mode, nodePoints: [] });
-		} else {
-			set({ mode });
+			updates.nodePoints = [];
 		}
+		if (prev === "select" && mode !== "select") {
+			updates.selectedCells = new Set();
+			updates.selectionRect = null;
+			updates.dragMove = null;
+		}
+		set(updates);
+	},
+
+	// Selection actions
+	selectCell: (key) =>
+		set((state) => {
+			if (!state.cells.has(key)) return state;
+			return { selectedCells: new Set([key]) };
+		}),
+
+	toggleSelectCell: (key) =>
+		set((state) => {
+			if (!state.cells.has(key)) return state;
+			const next = new Set(state.selectedCells);
+			if (next.has(key)) {
+				next.delete(key);
+			} else {
+				next.add(key);
+			}
+			return { selectedCells: next };
+		}),
+
+	selectRegion: (rect) =>
+		set((state) => {
+			const selected = new Set<string>();
+			for (const [key] of state.cells) {
+				const hex = parseHexKey(key);
+				const { x, y } = hexToPixel(hex);
+				const minX = Math.min(rect.x1, rect.x2);
+				const maxX = Math.max(rect.x1, rect.x2);
+				const minY = Math.min(rect.y1, rect.y2);
+				const maxY = Math.max(rect.y1, rect.y2);
+				if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+					selected.add(key);
+				}
+			}
+			return { selectedCells: selected, selectionRect: null };
+		}),
+
+	addRegion: (rect) =>
+		set((state) => {
+			const selected = new Set(state.selectedCells);
+			for (const [key] of state.cells) {
+				const hex = parseHexKey(key);
+				const { x, y } = hexToPixel(hex);
+				const minX = Math.min(rect.x1, rect.x2);
+				const maxX = Math.max(rect.x1, rect.x2);
+				const minY = Math.min(rect.y1, rect.y2);
+				const maxY = Math.max(rect.y1, rect.y2);
+				if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+					selected.add(key);
+				}
+			}
+			return { selectedCells: selected, selectionRect: null };
+		}),
+
+	clearSelection: () => set({ selectedCells: new Set(), selectionRect: null, dragMove: null }),
+
+	setSelectionRect: (rect) => set({ selectionRect: rect }),
+
+	setDragMove: (drag) => set({ dragMove: drag }),
+
+	// Transform actions
+	rotateSelected: (delta) => {
+		get().pushHistory();
+		set((state) => {
+			const newCells = new Map(state.cells);
+			for (const key of state.selectedCells) {
+				const cell = newCells.get(key);
+				if (cell) {
+					newCells.set(key, {
+						...cell,
+						rotation: ((cell.rotation + delta) % 360 + 360) % 360,
+					});
+				}
+			}
+			return { cells: newCells };
+		});
+	},
+
+	orbitSelected: (delta) => {
+		get().pushHistory();
+		set((state) => {
+			const keys = [...state.selectedCells];
+			if (keys.length === 0) return state;
+			const center = selectionCentroid(keys);
+			const newCells = new Map(state.cells);
+			const newSelected = new Set<string>();
+			const movedEntries: Array<{ key: string; cell: CellData }> = [];
+
+			// Remove old positions
+			for (const key of keys) {
+				const cell = newCells.get(key);
+				if (cell) {
+					const hex = parseHexKey(key);
+					const rotated = hexRotateAround(hex, center, delta);
+					const newKey = hexKey(rotated);
+					movedEntries.push({
+						key: newKey,
+						cell: {
+							...cell,
+							rotation: ((cell.rotation + delta) % 360 + 360) % 360,
+						},
+					});
+					newCells.delete(key);
+				}
+			}
+
+			// Place at new positions (overwrites)
+			for (const entry of movedEntries) {
+				newCells.set(entry.key, entry.cell);
+				newSelected.add(entry.key);
+			}
+
+			return { cells: newCells, selectedCells: newSelected };
+		});
+	},
+
+	moveSelected: (deltaQ, deltaR) => {
+		get().pushHistory();
+		set((state) => {
+			const keys = [...state.selectedCells];
+			if (keys.length === 0) return state;
+			const newCells = new Map(state.cells);
+			const newSelected = new Set<string>();
+			const movedEntries: Array<{ key: string; cell: CellData }> = [];
+
+			// Collect and remove old positions
+			for (const key of keys) {
+				const cell = newCells.get(key);
+				if (cell) {
+					const hex = parseHexKey(key);
+					const newKey = hexKey({ q: hex.q + deltaQ, r: hex.r + deltaR });
+					movedEntries.push({ key: newKey, cell });
+					newCells.delete(key);
+				}
+			}
+
+			// Place at new positions (overwrites)
+			for (const entry of movedEntries) {
+				newCells.set(entry.key, entry.cell);
+				newSelected.add(entry.key);
+			}
+
+			return { cells: newCells, selectedCells: newSelected, dragMove: null };
+		});
+	},
+
+	recolorSelected: (color) => {
+		get().pushHistory();
+		set((state) => {
+			const newCells = new Map(state.cells);
+			for (const key of state.selectedCells) {
+				const cell = newCells.get(key);
+				if (cell) {
+					newCells.set(key, { ...cell, color });
+				}
+			}
+			return { cells: newCells };
+		});
+	},
+
+	deleteSelected: () => {
+		get().pushHistory();
+		set((state) => {
+			const newCells = new Map(state.cells);
+			for (const key of state.selectedCells) {
+				newCells.delete(key);
+			}
+			return { cells: newCells, selectedCells: new Set() };
+		});
 	},
 
 	setColorMode: (colorMode) => set({ colorMode }),

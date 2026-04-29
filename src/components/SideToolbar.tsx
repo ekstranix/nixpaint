@@ -6,6 +6,7 @@ const tools: Array<{ mode: Mode; icon: string; label: string }> = [
 	{ mode: "erase", icon: "\u{1F9F9}", label: "Erase" },
 	{ mode: "pan", icon: "\u{270B}", label: "Pan" },
 	{ mode: "node", icon: "\u{1F517}", label: "Node" },
+	{ mode: "select", icon: "\u{1F4CC}", label: "Select" },
 	{ mode: "foreground", icon: "\u{1F3A8}", label: "Foreground Color" },
 	{ mode: "background", icon: "\u{1F5BC}\uFE0F", label: "Background Color" },
 ];

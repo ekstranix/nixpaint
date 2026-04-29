@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { hexToPixel, parseHexKey } from "../lib/grid";
+import { hexKey, hexToPixel, parseHexKey, pixelToHex } from "../lib/grid";
 import { useCanvasStore } from "../store/canvas";
 import type { Viewport } from "../types";
 import { Lambda } from "./Lambda";
@@ -29,6 +29,18 @@ interface PanState {
 	ctm: DOMMatrix;
 }
 
+interface SelectDragState {
+	startX: number;
+	startY: number;
+	shift: boolean;
+}
+
+interface MoveDragState {
+	startSvgX: number;
+	startSvgY: number;
+	startHex: { q: number; r: number };
+}
+
 function getCursor(mode: string): string {
 	switch (mode) {
 		case "erase":
@@ -37,6 +49,8 @@ function getCursor(mode: string): string {
 			return "grab";
 		case "node":
 			return "crosshair";
+		case "select":
+			return "default";
 		default:
 			return "default";
 	}
@@ -48,12 +62,17 @@ export function Canvas() {
 	const isPanning = useRef(false);
 	const lastPixel = useRef<{ x: number; y: number } | null>(null);
 	const panStart = useRef<PanState | null>(null);
+	const selectDrag = useRef<SelectDragState | null>(null);
+	const moveDrag = useRef<MoveDragState | null>(null);
 
 	const cells = useCanvasStore((s) => s.cells);
 	const viewport = useCanvasStore((s) => s.viewport);
 	const mode = useCanvasStore((s) => s.mode);
 	const backgroundColor = useCanvasStore((s) => s.backgroundColor);
 	const nodePoints = useCanvasStore((s) => s.nodePoints);
+	const selectedCells = useCanvasStore((s) => s.selectedCells);
+	const selectionRect = useCanvasStore((s) => s.selectionRect);
+	const dragMove = useCanvasStore((s) => s.dragMove);
 
 	useEffect(() => {
 		const svg = svgRef.current;
@@ -84,6 +103,38 @@ export function Canvas() {
 			if (mode === "foreground" || mode === "background") return;
 
 			const pt = screenToSvg(svg, e.clientX, e.clientY);
+
+			// Select mode
+			if (mode === "select") {
+				const clickHex = pixelToHex(pt.x, pt.y);
+				const clickKey = hexKey(clickHex);
+				const hasCell = store.cells.has(clickKey);
+				const isSelected = store.selectedCells.has(clickKey);
+
+				if (hasCell && isSelected && !e.shiftKey) {
+					// Start move drag on an already-selected lambda
+					moveDrag.current = {
+						startSvgX: pt.x,
+						startSvgY: pt.y,
+						startHex: clickHex,
+					};
+					store.setDragMove({ startX: pt.x, startY: pt.y, currentX: pt.x, currentY: pt.y });
+					svg.setPointerCapture(e.pointerId);
+				} else if (hasCell && e.shiftKey) {
+					store.toggleSelectCell(clickKey);
+				} else if (hasCell) {
+					store.selectCell(clickKey);
+				} else {
+					// Start rectangle drag on empty space, or clear
+					if (!e.shiftKey) {
+						store.clearSelection();
+					}
+					selectDrag.current = { startX: pt.x, startY: pt.y, shift: e.shiftKey };
+					store.setSelectionRect({ x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y });
+					svg.setPointerCapture(e.pointerId);
+				}
+				return;
+			}
 
 			// Node tool
 			if (mode === "node") {
@@ -130,6 +181,31 @@ export function Canvas() {
 				return;
 			}
 
+			// Select: rectangle drag
+			if (selectDrag.current) {
+				const pt = screenToSvg(svg, e.clientX, e.clientY);
+				const sd = selectDrag.current;
+				useCanvasStore.getState().setSelectionRect({
+					x1: sd.startX,
+					y1: sd.startY,
+					x2: pt.x,
+					y2: pt.y,
+				});
+				return;
+			}
+
+			// Select: move drag
+			if (moveDrag.current) {
+				const pt = screenToSvg(svg, e.clientX, e.clientY);
+				useCanvasStore.getState().setDragMove({
+					startX: moveDrag.current.startSvgX,
+					startY: moveDrag.current.startSvgY,
+					currentX: pt.x,
+					currentY: pt.y,
+				});
+				return;
+			}
+
 			// Painting/erasing
 			if (!isPainting.current || !lastPixel.current) return;
 			const store = useCanvasStore.getState();
@@ -149,6 +225,45 @@ export function Canvas() {
 		};
 
 		const handlePointerUp = () => {
+			// Finalize rectangle selection
+			if (selectDrag.current) {
+				const sd = selectDrag.current;
+				const store = useCanvasStore.getState();
+				const rect = store.selectionRect;
+				if (rect) {
+					const dx = Math.abs(rect.x2 - rect.x1);
+					const dy = Math.abs(rect.y2 - rect.y1);
+					if (dx > 2 || dy > 2) {
+						if (sd.shift) {
+							store.addRegion(rect);
+						} else {
+							store.selectRegion(rect);
+						}
+					} else {
+						store.setSelectionRect(null);
+					}
+				}
+				selectDrag.current = null;
+			}
+
+			// Finalize move drag
+			if (moveDrag.current) {
+				const store = useCanvasStore.getState();
+				const dm = store.dragMove;
+				if (dm) {
+					const startHex = pixelToHex(dm.startX, dm.startY);
+					const endHex = pixelToHex(dm.currentX, dm.currentY);
+					const deltaQ = endHex.q - startHex.q;
+					const deltaR = endHex.r - startHex.r;
+					if (deltaQ !== 0 || deltaR !== 0) {
+						store.moveSelected(deltaQ, deltaR);
+					} else {
+						store.setDragMove(null);
+					}
+				}
+				moveDrag.current = null;
+			}
+
 			isPainting.current = false;
 			isPanning.current = false;
 			lastPixel.current = null;
@@ -164,9 +279,12 @@ export function Canvas() {
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
-				const { mode } = useCanvasStore.getState();
-				if (mode === "node") {
-					useCanvasStore.getState().clearNodePoints();
+				const store = useCanvasStore.getState();
+				if (store.mode === "node") {
+					store.clearNodePoints();
+				}
+				if (store.mode === "select") {
+					store.clearSelection();
 				}
 			}
 
@@ -265,11 +383,39 @@ export function Canvas() {
 				fill={backgroundColor}
 			/>
 			{visibleLambdas.map(({ key, x, y, rotation, color }) => (
-				<Lambda key={key} x={x} y={y} rotation={rotation} color={color} />
+				<Lambda key={key} x={x} y={y} rotation={rotation} color={color} selected={selectedCells.has(key)} />
 			))}
 			{lastNode && mode === "node" && (
 				<circle cx={lastNode.x} cy={lastNode.y} r={4} fill="#7ebae4" opacity={0.8} />
 			)}
+			{selectionRect && (
+				<rect
+					x={Math.min(selectionRect.x1, selectionRect.x2)}
+					y={Math.min(selectionRect.y1, selectionRect.y2)}
+					width={Math.abs(selectionRect.x2 - selectionRect.x1)}
+					height={Math.abs(selectionRect.y2 - selectionRect.y1)}
+					fill="rgba(126, 186, 228, 0.15)"
+					stroke="#7ebae4"
+					strokeWidth={1 / (viewport.zoom || 1)}
+					strokeDasharray={`${4 / (viewport.zoom || 1)}`}
+				/>
+			)}
+			{dragMove && mode === "select" && (() => {
+				const dx = dragMove.currentX - dragMove.startX;
+				const dy = dragMove.currentY - dragMove.startY;
+				const ghosts: Array<{ key: string; x: number; y: number; rotation: number; color: string }> = [];
+				for (const key of selectedCells) {
+					const cell = cells.get(key);
+					if (cell) {
+						const hex = parseHexKey(key);
+						const { x, y } = hexToPixel(hex);
+						ghosts.push({ key, x: x + dx, y: y + dy, rotation: cell.rotation, color: cell.color });
+					}
+				}
+				return ghosts.map(({ key, x, y, rotation, color }) => (
+					<Lambda key={`ghost-${key}`} x={x} y={y} rotation={rotation} color={color} opacity={0.4} />
+				));
+			})()}
 		</svg>
 	);
 }

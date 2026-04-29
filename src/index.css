@@ -266,3 +266,13 @@ svg {
 .github-stars img {
 	height: 20px;
 }
+
+@keyframes marching-ants {
+	to {
+		stroke-dashoffset: -8;
+	}
+}
+
+.marching-ants {
+	animation: marching-ants 0.4s linear infinite;
+}

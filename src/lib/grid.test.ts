@@ -3,10 +3,12 @@ import {
 	hexesOnLine,
 	hexKey,
 	hexNeighbors,
+	hexRotateAround,
 	hexRotation,
 	hexToPixel,
 	parseHexKey,
 	pixelToHex,
+	selectionCentroid,
 } from "./grid";
 
 describe("hexToPixel / pixelToHex roundtrip", () => {
@@ -82,6 +84,67 @@ describe("hexKey / parseHexKey", () => {
 		const back = parseHexKey(key);
 		expect(back.q).toBe(hex.q);
 		expect(back.r).toBe(hex.r);
+	});
+});
+
+describe("hexRotateAround", () => {
+	it("360° rotation returns to original position", () => {
+		const center = { q: 0, r: 0 };
+		const hex = { q: 2, r: -1 };
+		const result = hexRotateAround(hex, center, 360);
+		expect(result.q).toBe(hex.q);
+		expect(result.r).toBe(hex.r);
+	});
+
+	it("6 steps of 60° returns to original position", () => {
+		const center = { q: 1, r: 1 };
+		const hex = { q: 3, r: 0 };
+		let current = hex;
+		for (let i = 0; i < 6; i++) {
+			current = hexRotateAround(current, center, 60);
+		}
+		expect(current.q).toBe(hex.q);
+		expect(current.r).toBe(hex.r);
+	});
+
+	it("rotating center around itself returns center", () => {
+		const center = { q: 2, r: 3 };
+		const result = hexRotateAround(center, center, 60);
+		expect(result.q).toBe(center.q);
+		expect(result.r).toBe(center.r);
+	});
+
+	it("negative rotation works (counterclockwise)", () => {
+		const center = { q: 0, r: 0 };
+		const hex = { q: 1, r: 0 };
+		const cw = hexRotateAround(hex, center, 60);
+		const ccw = hexRotateAround(hex, center, -60);
+		// CW then CCW should return to original
+		const back = hexRotateAround(cw, center, -60);
+		expect(back.q).toBe(hex.q);
+		expect(back.r).toBe(hex.r);
+		// CCW should differ from CW
+		expect(ccw.q !== cw.q || ccw.r !== cw.r).toBe(true);
+	});
+});
+
+describe("selectionCentroid", () => {
+	it("single cell returns its own position", () => {
+		const result = selectionCentroid(["3,4"]);
+		expect(result.q).toBe(3);
+		expect(result.r).toBe(4);
+	});
+
+	it("symmetric cells return center", () => {
+		const result = selectionCentroid(["1,0", "-1,0"]);
+		expect(result.q).toBe(0);
+		expect(result.r).toBe(0);
+	});
+
+	it("empty array returns origin", () => {
+		const result = selectionCentroid([]);
+		expect(result.q).toBe(0);
+		expect(result.r).toBe(0);
 	});
 });
 
